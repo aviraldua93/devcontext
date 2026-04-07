@@ -63,9 +63,27 @@ devcontext save my-api-project \
 devcontext recall my-api-project
 ```
 
-This displays your saved context — summary, next steps, open PRs, and blockers — so you can resume instantly.
+This clones/pulls all repos listed in the scenario, loads skills, and displays your saved context — summary, next steps, open PRs, and blockers — so you can resume instantly.
 
-### 4. List All Scenarios
+Use `--skip-repos` to recall without touching repositories:
+
+```bash
+devcontext recall my-api-project --skip-repos
+```
+
+### 4. Sync Across Machines
+
+Push your scenario to GitHub and pull it on another machine:
+
+```bash
+# Push scenario state to a remote repo
+devcontext push my-api-project
+
+# On another machine: pull the latest state
+devcontext pull my-api-project
+```
+
+### 5. List All Scenarios
 
 ```bash
 # List all scenarios
@@ -75,7 +93,7 @@ devcontext list
 devcontext list --status active
 ```
 
-### 5. Hand Off to a Colleague
+### 6. Hand Off to a Colleague
 
 ```bash
 devcontext handoff my-api-project --to teammate-username
@@ -83,7 +101,7 @@ devcontext handoff my-api-project --to teammate-username
 
 This transitions the scenario to `handed-off` status, preserving all context for your teammate.
 
-### 6. Archive When Done
+### 7. Archive When Done
 
 ```bash
 devcontext teardown my-api-project
@@ -95,10 +113,34 @@ This moves the scenario to `archived` status. The manifest is preserved for hist
 
 DevContext includes a Karpathy-style knowledge wiki for persistent memory about systems, patterns, and concepts.
 
+### Create a Knowledge Entity
+
+```bash
+devcontext knowledge create --title "Retry Patterns" --type concept --tags distributed-systems resilience
+```
+
 ### Search Knowledge
 
 ```bash
 devcontext knowledge search "retry patterns"
+```
+
+### List All Entities
+
+```bash
+devcontext knowledge list
+```
+
+### Get a Specific Entity
+
+```bash
+devcontext knowledge get retry-patterns
+```
+
+### Delete an Entity
+
+```bash
+devcontext knowledge delete retry-patterns
 ```
 
 ### Knowledge Entity Format

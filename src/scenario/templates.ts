@@ -180,10 +180,24 @@ function templatesDir(): string {
 
 /**
  * Load a single template from a YAML file and convert it to a ScenarioTemplate.
+ * Validates the loaded data against the scenario schema.
  */
 function loadTemplateFromYaml(filePath: string): ScenarioTemplate {
   const content = readFileSync(filePath, "utf8");
-  const parsed = yaml.load(content) as Scenario;
+  const raw = yaml.load(content);
+  if (!raw || typeof raw !== "object" || !("name" in raw)) {
+    throw new Error(`Invalid template file: ${filePath} — missing 'name' field`);
+  }
+  const parsed = raw as Scenario;
+
+  // Validate against the scenario schema
+  const validation = validateScenarioManifest(parsed);
+  if (!validation.valid) {
+    throw new Error(
+      `Template '${filePath}' failed validation: ${validation.errors?.join("; ")}`
+    );
+  }
+
   const id = parsed.name;
 
   // Convert the full Scenario into a ScenarioTemplate

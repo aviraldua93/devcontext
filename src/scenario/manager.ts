@@ -32,7 +32,13 @@ function scenariosDir(): string {
 }
 
 function scenarioPath(name: string): string {
-  return join(scenariosDir(), `${name}.yaml`);
+  const dir = scenariosDir();
+  const resolved = join(dir, `${name}.yaml`);
+  // Path traversal protection: ensure the resolved path stays within the scenarios directory
+  if (!resolved.startsWith(dir)) {
+    throw new Error(`Invalid scenario name: path traversal detected`);
+  }
+  return resolved;
 }
 
 function ensureScenariosDir(): void {
@@ -148,17 +154,27 @@ export function deleteScenario(name: string): void {
 /**
  * List all scenario manifests in the scenarios directory.
  * Returns an empty array if the directory does not exist.
+ * Skips files that fail schema validation to handle corrupt/incompatible files gracefully.
  */
 export function listScenarios(): Scenario[] {
   const dir = scenariosDir();
   if (!existsSync(dir)) return [];
 
-  return readdirSync(dir)
-    .filter(f => f.endsWith(".yaml"))
-    .map(f => {
+  const scenarios: Scenario[] = [];
+
+  for (const f of readdirSync(dir).filter(f => f.endsWith(".yaml"))) {
+    try {
       const content = readFileSync(join(dir, f), "utf8");
-      return yaml.load(content) as Scenario;
-    });
+      const raw = yaml.load(content);
+      if (validateScenario(raw)) {
+        scenarios.push(raw as unknown as Scenario);
+      }
+    } catch {
+      // Skip corrupt or unreadable scenario files
+    }
+  }
+
+  return scenarios;
 }
 
 /**

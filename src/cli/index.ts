@@ -13,10 +13,42 @@ import { transitionScenario, pauseScenario, resumeScenario, handoffScenario, arc
 import { getTemplates, applyTemplate } from "../scenario/templates.js";
 import { loadSkillsForScenario } from "../skills/loader.js";
 import { searchEntities } from "../knowledge/search.js";
+import { createEntity, getEntity, listEntities, deleteEntity } from "../knowledge/entities.js";
 import { pushScenario, pullScenario, cloneScenarioRepo } from "../sync/git.js";
 import { createHandoffPR } from "../sync/handoff.js";
 import { getConfig } from "../config.js";
-import type { Scenario, ScenarioStatus } from "../types.js";
+import type { Scenario, ScenarioStatus, KnowledgeEntityType } from "../types.js";
+
+// ---------------------------------------------------------------------------
+// Error classification — map common errors to actionable suggestions
+// ---------------------------------------------------------------------------
+
+function formatCliError(err: unknown): string {
+  const msg = (err as Error).message ?? String(err);
+
+  if (msg.includes("not found")) {
+    return `${msg}\n  ${chalk.dim("Hint: Run")} ${chalk.cyan("devcontext list")} ${chalk.dim("to see available scenarios.")}`;
+  }
+  if (msg.includes("already exists")) {
+    return `${msg}\n  ${chalk.dim("Hint: Choose a different name, or delete the existing one first.")}`;
+  }
+  if (msg.includes("Invalid scenario")) {
+    return `${msg}\n  ${chalk.dim("Hint: Check that the name is kebab-case and all required fields are provided.")}`;
+  }
+  if (msg.includes("GITHUB_TOKEN")) {
+    return `${msg}\n  ${chalk.dim("Hint: Set the GITHUB_TOKEN environment variable with a personal access token.")}`;
+  }
+  if (msg.includes("Invalid entity")) {
+    return `${msg}\n  ${chalk.dim("Hint: Ensure title, type (platform|system|repo|tool|concept|person|team), and updated date (YYYY-MM-DD) are valid.")}`;
+  }
+  if (msg.includes("Authentication failed")) {
+    return `${msg}\n  ${chalk.dim("Hint: Verify your GITHUB_TOKEN has the 'repo' scope.")}`;
+  }
+  if (msg.includes("Network error")) {
+    return `${msg}\n  ${chalk.dim("Hint: Check your internet connection and verify the repository URL.")}`;
+  }
+  return msg;
+}
 
 // ---------------------------------------------------------------------------
 // CLI setup
@@ -27,7 +59,17 @@ const program = new Command();
 program
   .name("devcontext")
   .description("Portable AI-driven working scenarios — Docker for your engineering brain")
-  .version("0.1.0");
+  .version("0.1.0")
+  .addHelpText("after", `
+Examples:
+  $ devcontext init                            Initialize workspace
+  $ devcontext create my-api --template web-api  Create from template
+  $ devcontext recall my-api                   Resume a scenario
+  $ devcontext list --status active            List active scenarios
+  $ devcontext knowledge search "retry"        Search knowledge wiki
+  $ devcontext push my-api                     Push scenario to GitHub
+  $ devcontext pull my-api                     Pull scenario from GitHub
+`);
 
 // ---------------------------------------------------------------------------
 // init — initialize workspace structure
@@ -36,6 +78,10 @@ program
 program
   .command("init")
   .description("Initialize the DevContext workspace directory structure")
+  .addHelpText("after", `
+Example:
+  $ devcontext init
+`)
   .action(async () => {
     const { existsSync, mkdirSync, writeFileSync } = await import("node:fs");
     const { join } = await import("node:path");
@@ -92,6 +138,13 @@ program
   .option("--repo <repos...>", "Add repositories (format: url:branch)")
   .option("--skill <skills...>", "Add skills")
   .option("-i, --interactive", "Use interactive prompts")
+  .addHelpText("after", `
+Examples:
+  $ devcontext create my-api -d "REST API project"
+  $ devcontext create my-api --template web-api
+  $ devcontext create my-api --repo https://github.com/org/repo:main --skill code-review
+  $ devcontext create -i                         # interactive mode
+`)
   .action(async (name: string | undefined, opts: {
     description?: string;
     template?: string;
@@ -170,7 +223,7 @@ program
         console.log(chalk.dim(`  Skills: ${scenario.skills.map(s => s.name).join(", ")}`));
       }
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -181,9 +234,15 @@ program
 
 program
   .command("recall")
-  .description("Recall and resume a working scenario")
+  .description("Recall and resume a working scenario — clones/pulls repos, loads skills, restores context")
   .argument("<name>", "Scenario name")
-  .action(async (name: string) => {
+  .option("--skip-repos", "Skip cloning/pulling repositories")
+  .addHelpText("after", `
+Examples:
+  $ devcontext recall my-api              # full recall with repo clone/pull
+  $ devcontext recall my-api --skip-repos # recall without touching repos
+`)
+  .action(async (name: string, opts: { skipRepos?: boolean }) => {
     const spinner = ora();
     try {
       spinner.start(chalk.cyan(`Recalling scenario ${chalk.bold(name)}…`));
@@ -211,8 +270,37 @@ program
       if (scenario.context?.blockers?.length) {
         console.log(chalk.dim("  Blockers:"));
         scenario.context.blockers.forEach(b =>
-          console.log(`    ${chalk.red("⚠")} ${b}`)
+          console.log(`    ${chalk.red("\u26A0")} ${b}`)
         );
+      }
+
+      // Clone/pull repositories listed in the scenario
+      if (!opts.skipRepos && scenario.repos?.length) {
+        console.log(chalk.dim(`  Syncing ${scenario.repos.length} repo(s)…`));
+        const { join } = await import("node:path");
+        const { existsSync } = await import("node:fs");
+        const syncBase = join(getConfig().home, "repos", scenario.name);
+
+        for (const repo of scenario.repos) {
+          const repoName = repo.url.split("/").pop()?.replace(/\.git$/, "") ?? "repo";
+          const targetDir = join(syncBase, repoName);
+
+          if (existsSync(join(targetDir, ".git"))) {
+            const result = await pullScenario(scenario.name, repo.url, repo.branch);
+            if (result.ok) {
+              console.log(`    ${chalk.green("\u2714")} ${chalk.dim("Pulled")} ${repoName} ${chalk.dim(`(${repo.branch})`)}`);
+            } else {
+              console.log(`    ${chalk.yellow("\u26A0")} ${chalk.dim("Pull failed for")} ${repoName}: ${chalk.dim(result.stderr)}`);
+            }
+          } else {
+            const result = await cloneScenarioRepo(repo.url, targetDir, repo.branch);
+            if (result.ok) {
+              console.log(`    ${chalk.green("\u2714")} ${chalk.dim("Cloned")} ${repoName} ${chalk.dim(`(${repo.branch})`)}`);
+            } else {
+              console.log(`    ${chalk.yellow("\u26A0")} ${chalk.dim("Clone failed for")} ${repoName}: ${chalk.dim(result.stderr)}`);
+            }
+          }
+        }
       }
 
       // Load skills
@@ -221,7 +309,7 @@ program
         console.log(chalk.dim(`  Skills loaded: ${skills.map(s => s.name).join(", ")}`));
       }
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -238,6 +326,12 @@ program
   .option("--next-step <steps...>", "Set next steps")
   .option("--blocker <blockers...>", "Set blockers")
   .option("--note <text>", "Add notes")
+  .addHelpText("after", `
+Examples:
+  $ devcontext save my-api --summary "Retry handler done"
+  $ devcontext save my-api --next-step "Write tests" --next-step "Update docs"
+  $ devcontext save my-api --blocker "Waiting on dependency release"
+`)
   .action(async (name: string, opts: { summary?: string; nextStep?: string[]; blocker?: string[]; note?: string }) => {
     const spinner = ora();
     try {
@@ -259,7 +353,7 @@ program
       updateScenario(name, updates);
       spinner.succeed(chalk.green(`Saved scenario: ${chalk.bold(name)}`));
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -279,6 +373,12 @@ program
   .command("list")
   .description("List all scenarios")
   .option("--status <status>", "Filter by status")
+  .addHelpText("after", `
+Examples:
+  $ devcontext list
+  $ devcontext list --status active
+  $ devcontext list --status paused
+`)
   .action(async (opts: { status?: string }) => {
     const spinner = ora();
     try {
@@ -317,7 +417,7 @@ program
 
       console.log(chalk.dim(`\n${scenarios.length} scenario(s)`));
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -332,6 +432,11 @@ program
   .argument("<name>", "Scenario name")
   .option("--to <engineer>", "Target engineer GitHub username")
   .option("--pr", "Create a GitHub PR for the handoff")
+  .addHelpText("after", `
+Examples:
+  $ devcontext handoff my-api --to teammate
+  $ devcontext handoff my-api --to teammate --pr
+`)
   .action(async (name: string, opts: { to?: string; pr?: boolean }) => {
     const spinner = ora();
     try {
@@ -359,7 +464,7 @@ program
         );
       }
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -373,6 +478,11 @@ program
   .description("Archive and clean up a scenario")
   .argument("<name>", "Scenario name")
   .option("-y, --yes", "Skip confirmation prompt")
+  .addHelpText("after", `
+Examples:
+  $ devcontext teardown my-api
+  $ devcontext teardown my-api -y     # skip confirmation
+`)
   .action(async (name: string, opts: { yes?: boolean }) => {
     const spinner = ora();
     try {
@@ -395,7 +505,83 @@ program
       archiveScenario(name);
       spinner.succeed(chalk.green(`Archived scenario: ${chalk.bold(name)}`));
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// push — push scenario to GitHub
+// ---------------------------------------------------------------------------
+
+program
+  .command("push")
+  .description("Push a scenario to a remote GitHub repository")
+  .argument("<name>", "Scenario name")
+  .option("--repo <url>", "Repository URL (overrides scenario manifest)")
+  .option("-b, --branch <branch>", "Branch name", "main")
+  .addHelpText("after", `
+Examples:
+  $ devcontext push my-api
+  $ devcontext push my-api --repo https://github.com/org/repo --branch dev
+`)
+  .action(async (name: string, opts: { repo?: string; branch: string }) => {
+    const spinner = ora();
+    try {
+      spinner.start(chalk.cyan(`Pushing scenario ${chalk.bold(name)}…`));
+      const scenario = getScenario(name);
+
+      const repoUrl = opts.repo ?? scenario.repos?.[0]?.url;
+      if (!repoUrl) {
+        throw new Error("No repository URL — provide --repo or add a repo to the scenario manifest.");
+      }
+
+      const result = await pushScenario(name, repoUrl, opts.branch);
+      if (!result.ok) {
+        throw new Error(result.stderr);
+      }
+
+      spinner.succeed(chalk.green(`Pushed scenario: ${chalk.bold(name)} → ${chalk.dim(repoUrl)}`));
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// pull — pull scenario from GitHub
+// ---------------------------------------------------------------------------
+
+program
+  .command("pull")
+  .description("Pull a scenario from a remote GitHub repository")
+  .argument("<name>", "Scenario name")
+  .option("--repo <url>", "Repository URL (overrides scenario manifest)")
+  .option("-b, --branch <branch>", "Branch name", "main")
+  .addHelpText("after", `
+Examples:
+  $ devcontext pull my-api
+  $ devcontext pull my-api --repo https://github.com/org/repo --branch dev
+`)
+  .action(async (name: string, opts: { repo?: string; branch: string }) => {
+    const spinner = ora();
+    try {
+      spinner.start(chalk.cyan(`Pulling scenario ${chalk.bold(name)}…`));
+      const scenario = getScenario(name);
+
+      const repoUrl = opts.repo ?? scenario.repos?.[0]?.url;
+      if (!repoUrl) {
+        throw new Error("No repository URL — provide --repo or add a repo to the scenario manifest.");
+      }
+
+      const result = await pullScenario(name, repoUrl, opts.branch);
+      if (!result.ok) {
+        throw new Error(result.stderr);
+      }
+
+      spinner.succeed(chalk.green(`Pulled scenario: ${chalk.bold(name)} ← ${chalk.dim(repoUrl)}`));
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });
@@ -405,7 +591,15 @@ program
 // ---------------------------------------------------------------------------
 
 const knowledgeCmd = new Command("knowledge")
-  .description("Manage and search knowledge entities");
+  .description("Manage and search knowledge entities")
+  .addHelpText("after", `
+Examples:
+  $ devcontext knowledge search "retry patterns"
+  $ devcontext knowledge list
+  $ devcontext knowledge get retry-patterns
+  $ devcontext knowledge create --title "Retry Patterns" --type concept
+  $ devcontext knowledge delete retry-patterns
+`);
 
 knowledgeCmd
   .command("search")
@@ -434,7 +628,113 @@ knowledgeCmd
         console.log();
       }
     } catch (err: unknown) {
-      spinner.fail(chalk.red(`Error: ${(err as Error).message}`));
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+knowledgeCmd
+  .command("list")
+  .description("List all knowledge entities")
+  .action(async () => {
+    try {
+      const entities = listEntities();
+      if (entities.length === 0) {
+        console.log(chalk.dim("No knowledge entities found."));
+        return;
+      }
+
+      const nameWidth = Math.max(20, ...entities.map(e => e.title.length + 2));
+      const typeWidth = 12;
+      console.log(
+        chalk.bold(
+          "TITLE".padEnd(nameWidth) +
+          "TYPE".padEnd(typeWidth) +
+          "TAGS"
+        )
+      );
+      console.log(chalk.dim("\u2500".repeat(nameWidth + typeWidth + 30)));
+
+      for (const e of entities) {
+        console.log(
+          chalk.bold(e.title.padEnd(nameWidth)) +
+          chalk.cyan(e.type.padEnd(typeWidth)) +
+          chalk.dim((e.tags ?? []).join(", "))
+        );
+      }
+
+      console.log(chalk.dim(`\n${entities.length} entity(s)`));
+    } catch (err: unknown) {
+      console.error(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+knowledgeCmd
+  .command("get")
+  .description("Get a knowledge entity by slug")
+  .argument("<slug>", "Entity slug (e.g. retry-patterns)")
+  .action(async (slug: string) => {
+    try {
+      const entity = getEntity(slug);
+      console.log(chalk.bold(chalk.cyan(entity.title)) + chalk.dim(` [${entity.type}]`));
+      console.log(chalk.dim(`Updated: ${entity.updated}`));
+      if (entity.tags?.length) {
+        console.log(chalk.dim(`Tags: ${entity.tags.join(", ")}`));
+      }
+      if (entity.related?.length) {
+        console.log(chalk.dim(`Related: ${entity.related.join(", ")}`));
+      }
+      console.log();
+      console.log(entity.content ?? "");
+    } catch (err: unknown) {
+      console.error(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+knowledgeCmd
+  .command("create")
+  .description("Create a new knowledge entity")
+  .option("--title <title>", "Entity title (required)")
+  .option("--type <type>", "Entity type: platform, system, repo, tool, concept, person, team", "concept")
+  .option("--tags <tags...>", "Tags for categorization")
+  .option("--content <text>", "Markdown content body")
+  .action(async (opts: { title?: string; type?: string; tags?: string[]; content?: string }) => {
+    const spinner = ora();
+    try {
+      if (!opts.title) {
+        throw new Error("--title is required. Example: devcontext knowledge create --title \"Retry Patterns\" --type concept");
+      }
+
+      spinner.start(chalk.cyan(`Creating entity "${opts.title}"…`));
+      const result = createEntity({
+        title: opts.title,
+        type: (opts.type ?? "concept") as KnowledgeEntityType,
+        updated: new Date().toISOString().slice(0, 10),
+        tags: opts.tags ?? [],
+        related: [],
+        content: opts.content ?? "",
+      });
+      spinner.succeed(chalk.green(`Created entity: ${chalk.bold(result.slug)}`));
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+knowledgeCmd
+  .command("delete")
+  .description("Delete a knowledge entity by slug")
+  .argument("<slug>", "Entity slug")
+  .action(async (slug: string) => {
+    const spinner = ora();
+    try {
+      spinner.start(chalk.cyan(`Deleting entity "${slug}"…`));
+      deleteEntity(slug);
+      spinner.succeed(chalk.green(`Deleted entity: ${chalk.bold(slug)}`));
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
       process.exit(1);
     }
   });

@@ -26,6 +26,28 @@ export interface SearchResult {
 }
 
 // ---------------------------------------------------------------------------
+// FTS5 query sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Sanitize user input for FTS5 MATCH queries.
+ * Strips FTS5 operators and special characters to prevent syntax errors.
+ * Wraps each term in quotes for safe literal matching.
+ */
+function sanitizeFtsQuery(query: string): string {
+  // Remove FTS5 special characters: *, ", (, ), :, ^, {, }
+  const cleaned = query.replace(/[*"():^{}]/g, " ");
+  // Split into terms and filter out FTS5 keywords and empty strings
+  const reserved = new Set(["AND", "OR", "NOT", "NEAR"]);
+  const terms = cleaned
+    .split(/\s+/)
+    .filter(t => t.length > 0 && !reserved.has(t.toUpperCase()));
+  if (terms.length === 0) return "";
+  // Quote each term for safe matching, join with spaces (implicit AND)
+  return terms.map(t => `"${t}"`).join(" ");
+}
+
+// ---------------------------------------------------------------------------
 // KnowledgeSearch class
 // ---------------------------------------------------------------------------
 
@@ -110,31 +132,50 @@ export class KnowledgeSearch {
 
   /**
    * Search knowledge entities using FTS5 MATCH.
+   * Sanitizes the query to prevent FTS5 syntax errors from user input.
    * Returns ranked results with entity name, title, type, snippet, and relevance score.
    */
   search(query: string, limit = 20): SearchResult[] {
     if (!query.trim()) return [];
 
     const db = this.getDb();
-    return db.prepare(`
-      SELECT
-        slug,
-        title,
-        type,
-        snippet(knowledge_fts, 4, '<mark>', '</mark>', '...', 32) as snippet,
-        rank
-      FROM knowledge_fts
-      WHERE knowledge_fts MATCH ?
-      ORDER BY rank
-      LIMIT ?
-    `).all(query, limit) as SearchResult[];
+
+    // Check if the index has any rows — return empty on empty DB
+    const count = db.prepare("SELECT COUNT(*) as n FROM knowledge_fts").get() as { n: number };
+    if (count.n === 0) return [];
+
+    const sanitized = sanitizeFtsQuery(query);
+    if (!sanitized) return [];
+
+    try {
+      return db.prepare(`
+        SELECT
+          slug,
+          title,
+          type,
+          snippet(knowledge_fts, 4, '<mark>', '</mark>', '...', 32) as snippet,
+          rank
+        FROM knowledge_fts
+        WHERE knowledge_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+      `).all(sanitized, limit) as SearchResult[];
+    } catch {
+      // If FTS5 query still fails (e.g. reserved words), fall back to empty results
+      return [];
+    }
   }
 
   /**
    * Search entities filtered by type.
+   * Returns empty array if the index is empty.
    */
   searchByType(type: string): SearchResult[] {
     const db = this.getDb();
+
+    const count = db.prepare("SELECT COUNT(*) as n FROM knowledge_fts").get() as { n: number };
+    if (count.n === 0) return [];
+
     return db.prepare(`
       SELECT slug, title, type, '' as snippet, 0 as rank
       FROM knowledge_fts

@@ -52,13 +52,20 @@ The CLI uses **Commander.js** to expose these commands:
 
 | Command | Description | Key Operations |
 |---------|-------------|----------------|
+| `init` | Initialize workspace | Create `~/.devcontext/` with directories |
 | `create` | Start a new scenario | Template selection, schema validation, disk write |
-| `recall` | Resume a scenario | YAML read, context display, branch checkout |
-| `save` | Checkpoint current state | Context update, YAML write, optional git push |
+| `recall` | Resume a scenario | YAML read, repo clone/pull, context display, skill loading |
+| `save` | Checkpoint current state | Context update, YAML write |
 | `list` | Show all scenarios | Directory scan, YAML parsing, status display |
 | `handoff` | Transfer to another engineer | Status transition, PR creation, context packaging |
-| `teardown` | Archive and clean up | Status → archived, optional branch cleanup |
-| `knowledge` | Search knowledge wiki | FTS5 query, entity display |
+| `teardown` | Archive and clean up | Status → archived |
+| `push` | Push scenario to GitHub | Git commit and push via transient auth |
+| `pull` | Pull scenario from GitHub | Git pull via transient auth |
+| `knowledge search` | Search knowledge wiki | FTS5 query, entity display |
+| `knowledge list` | List all entities | Directory scan, frontmatter parsing |
+| `knowledge get` | Get a single entity | Frontmatter + content display |
+| `knowledge create` | Create a new entity | Schema validation, disk write, FTS5 index update |
+| `knowledge delete` | Delete an entity | Disk removal, FTS5 index cleanup |
 
 ### Scenario Engine (`src/scenario/`)
 
