@@ -6,6 +6,7 @@
  */
 
 import { Command } from "commander";
+import { join } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { createScenario, getScenario, listScenarios, updateScenario } from "../scenario/manager.js";
@@ -17,6 +18,8 @@ import { createEntity, getEntity, listEntities, deleteEntity } from "../knowledg
 import { pushScenario, pullScenario, cloneScenarioRepo } from "../sync/git.js";
 import { createHandoffPR } from "../sync/handoff.js";
 import { getConfig } from "../config.js";
+import { generateVisualization } from "../knowledge/visualize/generator.js";
+import type { VisualizationType, VisualizationConfig } from "../knowledge/visualize/types.js";
 import type { Scenario, ScenarioStatus, KnowledgeEntityType } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -740,6 +743,253 @@ knowledgeCmd
   });
 
 program.addCommand(knowledgeCmd);
+
+// ---------------------------------------------------------------------------
+// papers — research paper curation and ingestion
+// ---------------------------------------------------------------------------
+
+const papersCmd = new Command("papers")
+  .description("Research paper discovery, curation, and knowledge ingestion")
+  .addHelpText("after", `
+Examples:
+  $ devcontext papers search "transformer attention"
+  $ devcontext papers curate --topics "LLM,RAG"
+  $ devcontext papers ingest arxiv-2301-07041
+`);
+
+papersCmd
+  .command("search")
+  .description("Search arXiv and Semantic Scholar for papers")
+  .argument("<query>", "Search query")
+  .option("-l, --limit <n>", "Maximum results per source", "10")
+  .option("--source <source>", "Source to search: arxiv, semantic-scholar, or all", "all")
+  .action(async (query: string, opts: { limit: string; source: string }) => {
+    const spinner = ora();
+    try {
+      spinner.start(chalk.cyan(`Searching for papers: "${query}"…`));
+      const limit = parseInt(opts.limit, 10) || 10;
+
+      const { createArxivClient, createSemanticScholarClient } = await import("../knowledge/papers/index.js");
+      const searchQuery = { query, maxResults: limit };
+      const allPapers: Array<{ title: string; authors: string[]; source: string; url: string; citations?: number }> = [];
+
+      if (opts.source === "all" || opts.source === "arxiv") {
+        try {
+          const arxiv = createArxivClient();
+          const result = await arxiv.searchPapers(searchQuery);
+          allPapers.push(...result.papers.map(p => ({
+            title: p.title, authors: p.authors, source: "arXiv", url: p.url, citations: p.citations,
+          })));
+        } catch (err) {
+          spinner.warn(chalk.yellow(`arXiv search failed: ${(err as Error).message}`));
+          spinner.start(chalk.cyan("Continuing with other sources…"));
+        }
+      }
+
+      if (opts.source === "all" || opts.source === "semantic-scholar") {
+        try {
+          const s2 = createSemanticScholarClient();
+          const result = await s2.searchPapers(searchQuery);
+          allPapers.push(...result.papers.map(p => ({
+            title: p.title, authors: p.authors, source: "S2", url: p.url, citations: p.citations,
+          })));
+        } catch (err) {
+          spinner.warn(chalk.yellow(`Semantic Scholar search failed: ${(err as Error).message}`));
+          spinner.start(chalk.cyan("Continuing…"));
+        }
+      }
+
+      spinner.stop();
+
+      if (allPapers.length === 0) {
+        console.log(chalk.dim("No papers found."));
+        return;
+      }
+
+      console.log(chalk.bold(`Found ${allPapers.length} paper(s):\n`));
+      for (const p of allPapers) {
+        console.log(`  ${chalk.bold(chalk.cyan(p.title))} ${chalk.dim(`[${p.source}]`)}`);
+        console.log(`  ${chalk.dim(p.authors.slice(0, 3).join(", "))}${p.authors.length > 3 ? chalk.dim(` +${p.authors.length - 3}`) : ""}`);
+        if (p.citations !== undefined) {
+          console.log(`  ${chalk.dim(`Citations: ${p.citations}`)}`);
+        }
+        console.log(`  ${chalk.dim(p.url)}`);
+        console.log();
+      }
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+papersCmd
+  .command("curate")
+  .description("Run automated paper curation based on topics and keywords")
+  .option("--topics <topics>", "Comma-separated topics", "")
+  .option("--keywords <keywords>", "Comma-separated keywords", "")
+  .option("--min-score <score>", "Minimum relevance score (0-1)", "0.2")
+  .option("--max-papers <n>", "Maximum papers to return", "10")
+  .option("--source <source>", "Sources: arxiv, semantic-scholar, or all", "all")
+  .action(async (opts: { topics: string; keywords: string; minScore: string; maxPapers: string; source: string }) => {
+    const spinner = ora();
+    try {
+      const topics = opts.topics ? opts.topics.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const keywords = opts.keywords ? opts.keywords.split(",").map(s => s.trim()).filter(Boolean) : [];
+
+      if (topics.length === 0 && keywords.length === 0) {
+        console.error(chalk.red("Error: provide --topics or --keywords for curation."));
+        console.log(chalk.dim('  Example: devcontext papers curate --topics "LLM,RAG" --keywords "transformer,attention"'));
+        process.exit(1);
+      }
+
+      // Use keywords as search terms; if only topics provided, search by topics
+      const searchKeywords = keywords.length > 0 ? keywords : topics;
+
+      spinner.start(chalk.cyan("Curating papers…"));
+
+      const { curatePapers, createMockArxivClient, createMockSemanticScholarClient } = await import("../knowledge/papers/index.js");
+      const { createArxivClient, createSemanticScholarClient } = await import("../knowledge/papers/index.js");
+
+      const sources: Array<"arxiv" | "semantic-scholar"> = [];
+      if (opts.source === "all" || opts.source === "arxiv") sources.push("arxiv");
+      if (opts.source === "all" || opts.source === "semantic-scholar") sources.push("semantic-scholar");
+
+      const config = {
+        topics,
+        keywords: searchKeywords,
+        minRelevanceScore: parseFloat(opts.minScore) || 0.2,
+        maxPapersPerDay: parseInt(opts.maxPapers, 10) || 10,
+        sources,
+      };
+
+      const deps: Record<string, unknown> = {};
+      if (sources.includes("arxiv")) {
+        try { deps.arxiv = createArxivClient(); } catch { /* skip */ }
+      }
+      if (sources.includes("semantic-scholar")) {
+        try { deps.semanticScholar = createSemanticScholarClient(); } catch { /* skip */ }
+      }
+
+      const papers = await curatePapers(config, deps as Parameters<typeof curatePapers>[1]);
+      spinner.stop();
+
+      if (papers.length === 0) {
+        console.log(chalk.dim("No papers matched your curation criteria."));
+        return;
+      }
+
+      console.log(chalk.bold(`Curated ${papers.length} paper(s):\n`));
+      for (const p of papers) {
+        console.log(`  ${chalk.bold(chalk.cyan(p.title))}`);
+        console.log(`  ${chalk.dim(p.authors.slice(0, 3).join(", "))}`);
+        console.log(`  ${chalk.dim(`ID: ${p.id}`)} ${chalk.dim(`| ${p.url}`)}`);
+        console.log();
+      }
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+papersCmd
+  .command("ingest")
+  .description("Ingest a paper into the knowledge wiki by ID")
+  .argument("<paper-id>", "Paper ID (e.g. arxiv-2301-07041)")
+  .action(async (paperId: string) => {
+    const spinner = ora();
+    try {
+      spinner.start(chalk.cyan(`Ingesting paper ${chalk.bold(paperId)}…`));
+
+      // For now, papers must have been found via search/curate first.
+      // This command creates a stub entity from the paper ID.
+      const { join } = await import("node:path");
+      const knowledgeDir = join(getConfig().home, "knowledge");
+      const { ingestPaper } = await import("../knowledge/papers/index.js");
+
+      // Try to fetch from Semantic Scholar by ID
+      const { getPaper } = await import("../knowledge/papers/semantic-scholar.js");
+      let paper;
+      try {
+        paper = await getPaper(paperId);
+      } catch {
+        // Fall back to a minimal manual paper entry
+        paper = {
+          id: paperId,
+          title: paperId.replace(/-/g, " "),
+          authors: [],
+          abstract: "",
+          url: "",
+          publishedDate: new Date().toISOString().split("T")[0],
+          topics: [],
+          source: "manual" as const,
+        };
+      }
+
+      await ingestPaper(paper, knowledgeDir);
+      spinner.succeed(chalk.green(`Ingested paper: ${chalk.bold(paper.title)}`));
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
+
+program.addCommand(papersCmd);
+
+// ---------------------------------------------------------------------------
+// visualize — generate interactive knowledge graph HTML
+// ---------------------------------------------------------------------------
+
+program
+  .command("visualize")
+  .description("Generate interactive HTML visualizations of your knowledge graph")
+  .option("--type <type>", "Visualization type: knowledge-graph, topic-clusters, timeline, research-landscape, entity-connections", "knowledge-graph")
+  .option("--output <path>", "Output file path", "knowledge-graph.html")
+  .option("--title <title>", "Visualization title")
+  .option("--open", "Open in browser after generation")
+  .addHelpText("after", `
+Examples:
+  $ devcontext visualize                                    Interactive knowledge graph
+  $ devcontext visualize --type topic-clusters              Cluster view
+  $ devcontext visualize --type timeline                    Timeline view
+  $ devcontext visualize --type research-landscape          Full dashboard
+  $ devcontext visualize --output ./my-graph.html           Custom output path
+  $ devcontext visualize --open                             Open in browser after generation
+`)
+  .action(async (opts: { type: string; output: string; title?: string; open?: boolean }) => {
+    const spinner = ora();
+    try {
+      const vizType = opts.type as VisualizationType;
+      const validTypes = ["knowledge-graph", "topic-clusters", "timeline", "research-landscape", "entity-connections"];
+      if (!validTypes.includes(vizType)) {
+        throw new Error(`Invalid type "${opts.type}". Valid: ${validTypes.join(", ")}`);
+      }
+
+      const config: VisualizationConfig = {
+        type: vizType,
+        title: opts.title ?? `DevContext — ${vizType}`,
+        outputPath: opts.output,
+        interactive: true,
+      };
+
+      const knowledgeDir = join(getConfig().home, "knowledge");
+      spinner.start(chalk.cyan(`Generating ${chalk.bold(vizType)} visualization…`));
+
+      await generateVisualization(config, knowledgeDir);
+      spinner.succeed(
+        chalk.green(`Generated: ${chalk.bold(opts.output)}`) +
+        chalk.dim(` (${vizType})`)
+      );
+
+      if (opts.open) {
+        const { exec } = await import("node:child_process");
+        const cmd = process.platform === "win32" ? "start" : process.platform === "darwin" ? "open" : "xdg-open";
+        exec(`${cmd} "${opts.output}"`);
+      }
+    } catch (err: unknown) {
+      spinner.fail(chalk.red(formatCliError(err)));
+      process.exit(1);
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Export for testing

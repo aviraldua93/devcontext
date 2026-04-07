@@ -212,7 +212,7 @@ describe("built-in skills end-to-end validation", () => {
     const builtinDir = join(process.cwd(), "skills");
     const skills = loadAllSkills(builtinDir);
 
-    expect(skills).toHaveLength(5);
+    expect(skills).toHaveLength(7);
 
     for (const skill of skills) {
       const result = validateSkill(skill);

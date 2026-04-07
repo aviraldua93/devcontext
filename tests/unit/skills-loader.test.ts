@@ -146,16 +146,18 @@ describe("loadBuiltinSkill", () => {
 describe("load real built-in skills", () => {
   const builtinDir = join(process.cwd(), "skills");
 
-  test("loads all 5 built-in skills", () => {
+  test("loads all 7 built-in skills", () => {
     const skills = loadAllSkills(builtinDir);
-    expect(skills).toHaveLength(5);
+    expect(skills).toHaveLength(7);
 
     const names = skills.map(s => s.name).sort();
     expect(names).toEqual([
       "ci-monitor",
       "code-review",
       "multi-agent",
+      "paper-curation",
       "pr-management",
+      "research-loop",
       "session-management",
     ]);
   });
