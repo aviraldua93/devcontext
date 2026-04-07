@@ -1,171 +1,298 @@
-# DevContext
+<div align="center">
 
-**Portable AI-driven working scenarios — Docker for your engineering brain.**
+# 🧠 DevContext
 
-> Resume any project, on any machine, instantly. Your repos, skills, knowledge, and context travel with you.
+### Docker for your engineering brain.
+
+**Resume any project, on any machine, in one command.**<br>
+Your repos, skills, knowledge, and working context travel with you.
+
+[![CI](https://github.com/aviraldua93/devcontext/actions/workflows/ci.yml/badge.svg)](https://github.com/aviraldua93/devcontext/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-runtime-f9f1e1?logo=bun&logoColor=black)](https://bun.sh)
+
+<br>
+
+```
+devcontext recall my-project
+```
+
+*Repos cloned. Branches checked out. Skills loaded. Context restored.*<br>
+*You're back where you left off.*
+
+</div>
+
+---
 
 ## The Problem
 
-Engineers lose **30+ minutes daily** reconstructing context:
-- Which repos was I working on? What branch?
-- What was I doing? What decisions did I make?
-- What skills/tools do I need loaded?
-- What PRs are open? What's blocked?
+It's Monday morning. You open your terminal.
 
-Session loss on restart. Context doesn't travel between machines. Skills installed here don't exist there.
+> *"What was I working on? Which branch? What's blocked? Where are my notes?"*
+
+You spend **30 minutes** piecing it together from Slack threads, stale tabs, and commit messages. Then your laptop dies and you switch to your desktop — **and do it all over again**.
+
+Context is the most expensive thing in software engineering, and we throw it away every time we close our terminals.
 
 ## The Solution
 
-A **Working Scenario** bundles everything into a resumable, portable package:
+DevContext packages your entire working state into a **portable, resumable scenario**:
 
-```yaml
-name: my-api-project
-status: active
-repos:
-  - url: https://github.com/myorg/api-service
-    branch: feature/retry-logic
-  - url: https://github.com/myorg/shared-lib
-    branch: main
-skills:
-  - name: code-review
-    source: root
-  - name: ci-monitor
-    source: personal
-context:
-  summary: "Implementing retry logic with exponential backoff"
-  open_prs: ["api-service#342"]
-  next_steps:
-    - "Write integration tests for retry handler"
-    - "Update API docs for new error codes"
-  blockers:
-    - "Waiting on shared-lib v2.1.0 release"
-```
-
-**One command to resume:**
 ```bash
-devcontext recall my-api-project
-# → Clones/pulls repos, checks out branches, loads skills, restores context
+# Friday evening — save your state
+devcontext save api-project \
+  --summary "Retry handler done, integration tests next" \
+  --next-step "Write tests for exponential backoff" \
+  --blocker "Waiting on shared-lib v2.1.0"
+
+# Monday morning — pick up exactly where you left off
+devcontext recall api-project
 ```
 
-## Architecture
-
 ```
-┌──────────────────────────────────────────────┐
-│  "I want to work on my-api-project"          │
-├──────────────────────────────────────────────┤
-│  DevContext CLI                               │
-│  Commands:                                    │
-│  ├─ create   — Start a new scenario           │
-│  ├─ recall   — Resume a scenario              │
-│  ├─ save     — Checkpoint current state       │
-│  ├─ list     — Show all scenarios             │
-│  ├─ handoff  — Transfer to another engineer   │
-│  ├─ teardown — Archive and clean up           │
-│  └─ knowledge — Search your knowledge wiki    │
-├──────────────────────────────────────────────┤
-│  Storage: GitHub repo (your scenarios travel) │
-│  Skills: Markdown instruction files           │
-│  Knowledge: Karpathy-style entity wiki        │
-└──────────────────────────────────────────────┘
+✔ Recalled scenario: api-project
+  Status: active
+  Summary: Retry handler done, integration tests next
+  Next steps:
+    1. Write tests for exponential backoff
+  Blockers:
+    ⚠ Waiting on shared-lib v2.1.0
+  Skills loaded: code-review, ci-monitor
 ```
 
-## Key Concepts
+**Zero context loss.** Every time.
 
-### Working Scenarios
-A named unit of work — repos + skills + context + session state. Stored as YAML manifests in your GitHub repo. Portable across machines.
+## How It Works
 
-### Skills
-Reusable instruction sets (Markdown files) that teach your AI assistant how to do specific tasks: code review patterns, CI monitoring, PR management, etc. Skills promote through layers:
+DevContext has three core concepts. That's it.
 
 ```
-Personal (your experiments)
-  → Team (shared practices)  
-    → Root (community-vetted)
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   📦 SCENARIO         🛠️ SKILLS            📚 KNOWLEDGE        │
+│   ─────────           ──────               ─────────           │
+│   Repos + branches    Reusable AI          Persistent          │
+│   Working context     instruction sets     mental models       │
+│   Session state       (code review,        about systems       │
+│   Next steps          CI monitoring,       you work with       │
+│   Blockers            PR management)       (Karpathy-style)    │
+│                                                                 │
+│              ┌────────────────────────┐                         │
+│              │    devcontext CLI      │                         │
+│              │  create · recall       │                         │
+│              │  save   · handoff      │                         │
+│              │  list   · teardown     │                         │
+│              │  knowledge search      │                         │
+│              └────────────────────────┘                         │
+│                         │                                       │
+│              ┌──────────┴──────────┐                            │
+│              │  GitHub repo sync   │                            │
+│              │  (your data travels │                            │
+│              │   with you — zero   │                            │
+│              │   infrastructure)   │                            │
+│              └─────────────────────┘                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-### Knowledge Wiki
-Persistent memory about systems, platforms, and concepts you work with. Karpathy-inspired: entities stored as Markdown with YAML frontmatter. Not documentation — **mental models**.
-
-### Sync via GitHub
-Your scenario repo is just a GitHub repo. Push/pull to sync across machines. PRs for handoffs. Git history for audit trail. Zero infrastructure.
 
 ## Quick Start
 
+Four commands from zero to your first scenario:
+
 ```bash
-# Install
+# 1. Install
 bun install -g devcontext
 
-# Initialize your workspace
+# 2. Initialize workspace
 devcontext init
 
-# Create a scenario
-devcontext create "Working on API retry logic" \
-  --repo myorg/api-service:feature/retry-logic \
-  --repo myorg/shared-lib:main \
-  --skill code-review \
-  --skill ci-monitor
+# 3. Create a scenario from a template
+devcontext create my-api --template web-api
 
-# Save progress
-devcontext save --summary "Retry handler done, need integration tests"
-
-# Later (or on another machine)...
-devcontext recall my-api-project
-
-# Search your knowledge
-devcontext knowledge search "retry patterns"
-
-# Hand off to a teammate
-devcontext handoff my-api-project --to teammate-username
-
-# Done? Archive it
-devcontext teardown my-api-project
+# 4. Start working
+devcontext recall my-api
 ```
+
+Or build a custom scenario interactively:
+
+```bash
+devcontext create my-project -i
+```
+
+## Features
+
+| | Feature | Description |
+|---|---------|-------------|
+| 📦 | **Working Scenarios** | Bundle repos, branches, skills, and context into one resumable unit |
+| 💾 | **Save & Recall** | Checkpoint your state with `save`, restore it anywhere with `recall` |
+| 🛠️ | **Pluggable Skills** | Markdown instruction files that teach AI how to review code, manage PRs, monitor CI |
+| 📚 | **Knowledge Wiki** | Persistent memory about systems and concepts — survives across sessions |
+| 🔄 | **Cross-Machine Sync** | GitHub-backed storage. Push from laptop, pull on desktop. Done. |
+| 🤝 | **Handoffs** | Transfer a scenario to a teammate with full context — optionally as a PR |
+| 🏗️ | **Templates** | Pre-built scenario templates for common project types |
+| 🔍 | **Full-Text Search** | FTS5-powered search across your entire knowledge base |
+| ✅ | **Schema Validation** | JSON Schema (Draft 2020-12) validates every manifest |
+| 🧩 | **Skill Promotion** | Skills promote from personal → team → root as they mature |
 
 ## Built-in Skills
 
-| Skill | What it does |
+| Skill | Description |
 |-------|-------------|
-| `code-review` | Systematic review checklist (security, correctness, style, performance, testing) |
-| `ci-monitor` | GitHub Actions pipeline monitoring and failure diagnosis |
-| `pr-management` | Full PR lifecycle (create, review, merge, cleanup) |
-| `session-management` | Checkpointing, resuming, cross-machine transfer |
-| `multi-agent` | Multi-agent workflow orchestration with docs-as-bus pattern |
+| `code-review` | Five-layer review protocol: security → correctness → style → performance → testing |
+| `ci-monitor` | GitHub Actions monitoring, failure diagnosis, and build health management |
+| `pr-management` | Full PR lifecycle — creation, review coordination, merging, and cleanup |
+| `session-management` | Checkpointing, resumption, and cross-machine context transfer |
+| `multi-agent` | Parallel agent orchestration using the docs-as-bus communication pattern |
+
+Skills are Markdown files with YAML frontmatter. Drop one in `skills/` and it's available immediately.
 
 ## Templates
 
-Start fast with pre-built scenario templates:
+Start fast with pre-built scenario scaffolds:
 
-| Template | Description |
+| Template | What you get |
 |----------|-------------|
-| `web-api` | REST API with auth, tests, CI |
-| `frontend-app` | React/Angular dashboard project |
-| `infra-pipeline` | CI/CD pipelines and build system |
-| `research-paper` | LaTeX paper with experiments |
-| `multi-agent` | A2A agent orchestration project |
+| `web-api` | REST API with auth, tests, CI pipeline, and API contracts |
+| `frontend-app` | React/Angular dashboard with component library and design system |
+| `infra-pipeline` | CI/CD pipelines, build system, and deployment configuration |
+| `research-paper` | LaTeX paper with experiment tracking, datasets, and analysis |
+| `multi-agent` | A2A agent orchestration with crew coordination and artifact bus |
+
+```bash
+devcontext create my-project --template web-api
+```
+
+## Example Scenario
+
+A real scenario manifest — this one orchestrates a multi-agent A2A project:
+
+```yaml
+name: a2a-crews
+version: "0.1.0"
+status: active
+description: "Multi-agent orchestration framework implementing Google's A2A protocol"
+
+repos:
+  - url: https://github.com/aviraldua93/a2a-crews
+    branch: master
+    purpose: "Core multi-agent framework"
+
+skills:
+  - name: multi-agent
+    source: root
+  - name: code-review
+    source: root
+
+knowledge:
+  - name: a2a-protocol
+    scope: scenario
+  - name: bun-runtime
+    scope: global
+
+context:
+  summary: "A2A-compliant multi-agent framework. Orchestrator splits work
+            into isolated tasks, each agent writes artifacts to a shared bus."
+  next_steps:
+    - "Add agent health monitoring with configurable timeouts"
+    - "Implement crew-level rollback on agent failure"
+    - "Add OpenTelemetry tracing for cross-agent flows"
+  blockers: []
+```
+
+## Knowledge Wiki
+
+Inspired by [Andrej Karpathy's approach](https://karpathy.ai/) to persistent memory: **entities, not documents.**
+
+Each knowledge entry is a Markdown file with YAML frontmatter — a mental model of a system, tool, or concept that you carry across projects.
+
+```markdown
+---
+title: "Google Agent-to-Agent (A2A) Protocol"
+type: concept
+updated: "2025-06-15"
+tags: [multi-agent, protocol, interoperability]
+related: [bun-runtime]
+---
+
+## What It Is
+Open standard for AI agent communication and task delegation.
+
+## Key Concepts
+- **Agent Card**: JSON capability descriptor (like OpenAPI for agents)
+- **Task**: Unit of work with lifecycle: submitted → working → completed
+- **Artifact**: Immutable output of a completed task
+```
+
+Search your knowledge base instantly:
+
+```bash
+devcontext knowledge search "retry patterns"
+```
+
+## Cross-Machine Sync
+
+The killer feature. Your scenario repo is a **regular GitHub repo**.
+
+```bash
+# Laptop: save your work
+devcontext save my-project --summary "Auth module done, need to write tests"
+
+# Push to GitHub (it's just git)
+cd ~/.devcontext && git add -A && git commit -m "checkpoint" && git push
+
+# Desktop: pull and resume
+cd ~/.devcontext && git pull
+devcontext recall my-project
+```
+
+**No cloud service. No account. No subscription.** Just git.
+
+Hand off to a teammate with a PR:
+
+```bash
+devcontext handoff my-project --to teammate --pr
+```
+
+## Portfolio Context
+
+DevContext is part of a broader AI agent engineering portfolio:
+
+| Project | What it does |
+|---------|-------------|
+| [a2a-crews](https://github.com/aviraldua93/a2a-crews) | Multi-agent orchestration via Google's A2A protocol |
+| [ag-ui-crews](https://github.com/aviraldua93/ag-ui-crews) | Agent ↔ Human real-time UI streaming |
+| [rag-a2a](https://github.com/aviraldua93/rag-a2a) | Agent knowledge retrieval with RAG pipelines |
+| [agent-traps-lab](https://github.com/aviraldua93/agent-traps-lab) | Adversarial testing and failure-mode analysis for agents |
+| [wiki-vs-rag](https://github.com/aviraldua93/wiki-vs-rag) | Head-to-head evaluation of wiki vs. RAG approaches |
+| [multi-agent-playbook](https://github.com/aviraldua93/multi-agent-playbook) | Patterns and anti-patterns for multi-agent systems |
+| **devcontext** | **The developer productivity layer — you are here** |
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Runtime | Bun (TypeScript) |
-| CLI | Commander.js |
-| Schemas | JSON Schema (Draft 2020-12) |
-| Storage | GitHub repos (git-based sync) |
-| Knowledge search | FTS5 (SQLite) |
-| Skills format | Markdown with YAML frontmatter |
-| Testing | Bun test |
+| Runtime | [Bun](https://bun.sh) (TypeScript, ESM) |
+| CLI framework | [Commander.js](https://github.com/tj/commander.js) |
+| Schema validation | [Ajv](https://ajv.js.org/) — JSON Schema Draft 2020-12 |
+| Storage | GitHub repos (git-based sync, zero infrastructure) |
+| Knowledge search | FTS5 via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
+| Skills format | Markdown + YAML frontmatter |
+| Interactive prompts | [Inquirer.js](https://github.com/SBoudrias/Inquirer.js) |
+| Testing | Bun's built-in test runner |
 
-## Portfolio Context
+## Contributing
 
-| Project | Pillar |
-|---------|--------|
-| [a2a-crews](https://github.com/aviraldua93/a2a-crews) | Agent ↔ Agent communication |
-| [ag-ui-crews](https://github.com/aviraldua93/ag-ui-crews) | Agent ↔ Human UI |
-| [rag-a2a](https://github.com/aviraldua93/rag-a2a) | Agent Knowledge & Retrieval |
-| [agent-traps-lab](https://github.com/aviraldua93/agent-traps-lab) | Adversarial Testing |
-| [wiki-vs-rag](https://github.com/aviraldua93/wiki-vs-rag) | Paradigm Evaluation |
-| **devcontext** | **Developer Productivity** |
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+# Dev setup
+git clone https://github.com/aviraldua93/devcontext.git
+cd devcontext
+bun install
+bun test
+```
 
 ## License
 
-MIT
+[MIT](LICENSE) © Aviral Dua
