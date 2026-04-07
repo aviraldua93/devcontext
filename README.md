@@ -101,8 +101,9 @@ DevContext has three core concepts. That's it.
 Four commands from zero to your first scenario:
 
 ```bash
-# 1. Install
-bun install -g devcontext
+# 1. Install (clone and link locally)
+git clone https://github.com/aviraldua93/devcontext.git
+cd devcontext && bun install && bun link
 
 # 2. Initialize workspace
 devcontext init
@@ -238,11 +239,11 @@ The killer feature. Your scenario repo is a **regular GitHub repo**.
 # Laptop: save your work
 devcontext save my-project --summary "Auth module done, need to write tests"
 
-# Push to GitHub (it's just git)
-cd ~/.devcontext && git add -A && git commit -m "checkpoint" && git push
+# Push to GitHub
+devcontext push my-project
 
 # Desktop: pull and resume
-cd ~/.devcontext && git pull
+devcontext pull my-project
 devcontext recall my-project
 ```
 

@@ -8,8 +8,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { createScenario, getScenario, listScenarios, deleteScenario, updateScenario } from "../scenario/manager.js";
-import { transitionScenario, pauseScenario, resumeScenario, handoffScenario, archiveScenario } from "../scenario/lifecycle.js";
+import { createScenario, getScenario, listScenarios, updateScenario } from "../scenario/manager.js";
+import { resumeScenario, handoffScenario, archiveScenario } from "../scenario/lifecycle.js";
 import { getTemplates, applyTemplate } from "../scenario/templates.js";
 import { loadSkillsForScenario } from "../skills/loader.js";
 import { searchEntities } from "../knowledge/search.js";

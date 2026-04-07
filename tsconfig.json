@@ -19,7 +19,6 @@
       "@knowledge/*": ["./src/knowledge/*"],
       "@skills/*": ["./src/skills/*"],
       "@sync/*": ["./src/sync/*"],
-      "@mcp/*": ["./src/mcp/*"],
       "@providers/*": ["./src/providers/*"]
     }
   },

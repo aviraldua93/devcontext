@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, resolve, relative } from "node:path";
 import matter from "gray-matter";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -32,7 +32,13 @@ function knowledgeDir(): string {
 }
 
 function entityPath(name: string): string {
-  return join(knowledgeDir(), `${name}.md`);
+  const dir = resolve(knowledgeDir());
+  const resolved = resolve(join(dir, `${name}.md`));
+  const rel = relative(dir, resolved);
+  if (rel.startsWith("..") || resolve(dir, rel) !== resolved) {
+    throw new Error(`Invalid entity name: path traversal detected`);
+  }
+  return resolved;
 }
 
 function ensureKnowledgeDir(): void {
@@ -46,7 +52,8 @@ function slugify(title: string): string {
   return title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 128);
 }
 
 // ---------------------------------------------------------------------------

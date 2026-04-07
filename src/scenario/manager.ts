@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, relative } from "node:path";
 import yaml from "js-yaml";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -32,10 +32,11 @@ function scenariosDir(): string {
 }
 
 function scenarioPath(name: string): string {
-  const dir = scenariosDir();
-  const resolved = join(dir, `${name}.yaml`);
-  // Path traversal protection: ensure the resolved path stays within the scenarios directory
-  if (!resolved.startsWith(dir)) {
+  const dir = resolve(scenariosDir());
+  const resolved = resolve(join(dir, `${name}.yaml`));
+  // Path traversal protection: use relative() to detect escape from scenarios directory
+  const rel = relative(dir, resolved);
+  if (rel.startsWith("..") || resolve(dir, rel) !== resolved) {
     throw new Error(`Invalid scenario name: path traversal detected`);
   }
   return resolved;

@@ -6,7 +6,7 @@
  * entity CRUD operations.
  */
 
-import type { KnowledgeEntity, KnowledgeEntityType } from "../types.js";
+import type { KnowledgeEntity } from "../types.js";
 import { createEntity } from "./entities.js";
 
 // ---------------------------------------------------------------------------

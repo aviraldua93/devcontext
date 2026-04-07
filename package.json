@@ -54,5 +54,20 @@
     "knowledge-base",
     "session-management",
     "skills"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "homepage": "https://github.com/aviraldua93/devcontext#readme",
+  "bugs": {
+    "url": "https://github.com/aviraldua93/devcontext/issues"
+  },
+  "files": [
+    "src",
+    "schemas",
+    "skills",
+    "templates",
+    "README.md",
+    "LICENSE"
   ]
 }
