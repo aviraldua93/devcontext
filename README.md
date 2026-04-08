@@ -1,3 +1,5 @@
+<p align="center"><img src="hero.svg" alt="DevContext Hero" width="800" /></p>
+
 <div align="center">
 
 # 🧠 DevContext
