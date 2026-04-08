@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#0d1033"/>
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="flowLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="containerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.15"/>
+    </linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e293b" stroke-width="0.5" opacity="0.4"/>
+    </pattern>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowStrong">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+      @keyframes dash-flow { 0% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
+      @keyframes dash-flow-r { 0% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 24; } }
+      @keyframes float-y { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+      @keyframes float-y2 { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(6px); } }
+      @keyframes scale-pulse { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 1; } }
+      @keyframes ripple { 0% { r: 8; opacity: 0.6; } 100% { r: 28; opacity: 0; } }
+      @keyframes scan { 0% { transform: translateY(-200px); opacity: 0; } 10% { opacity: 0.15; } 90% { opacity: 0.15; } 100% { transform: translateY(200px); opacity: 0; } }
+      @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+      @keyframes particle-up { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(-60px) scale(0); opacity: 0; } }
+      @keyframes glow-breathe { 0%,100% { filter: drop-shadow(0 0 4px #06b6d4); } 50% { filter: drop-shadow(0 0 12px #8b5cf6); } }
+      @keyframes orbit { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .scan-line { animation: scan 4s ease-in-out infinite; }
+      .pulse1 { animation: pulse 2s ease-in-out infinite; }
+      .pulse2 { animation: pulse 2s ease-in-out 0.5s infinite; }
+      .pulse3 { animation: pulse 2s ease-in-out 1s infinite; }
+      .pulse4 { animation: pulse 2s ease-in-out 1.5s infinite; }
+      .flow-in { stroke-dasharray: 8 16; animation: dash-flow 1.5s linear infinite; }
+      .flow-out { stroke-dasharray: 8 16; animation: dash-flow-r 1.5s linear infinite; }
+      .float1 { animation: float-y 3s ease-in-out infinite; }
+      .float2 { animation: float-y2 3.5s ease-in-out 0.3s infinite; }
+      .float3 { animation: float-y 4s ease-in-out 0.7s infinite; }
+      .float4 { animation: float-y2 3s ease-in-out 1s infinite; }
+      .container-glow { animation: glow-breathe 3s ease-in-out infinite; }
+      .blink-cursor { animation: blink 1s step-end infinite; }
+      .ripple1 { animation: ripple 2.5s ease-out infinite; }
+      .ripple2 { animation: ripple 2.5s ease-out 0.8s infinite; }
+      .particle { animation: particle-up 2s ease-out infinite; }
+      .p2 { animation: particle-up 2.5s ease-out 0.4s infinite; }
+      .p3 { animation: particle-up 1.8s ease-out 0.9s infinite; }
+      .p4 { animation: particle-up 2.2s ease-out 1.3s infinite; }
+      .p5 { animation: particle-up 2.8s ease-out 0.2s infinite; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="400" fill="url(#bg)"/>
+  <rect width="800" height="400" fill="url(#grid)"/>
+
+  <!-- Scanning line -->
+  <rect class="scan-line" x="0" y="195" width="800" height="10" fill="url(#flowLine)" opacity="0.15"/>
+
+  <!-- Corner decorations -->
+  <path d="M 20 50 L 20 20 L 50 20" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 750 20 L 780 20 L 780 50" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 20 350 L 20 380 L 50 380" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 750 380 L 780 380 L 780 350" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Title -->
+  <text x="400" y="52" text-anchor="middle" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="32" font-weight="900" letter-spacing="4" fill="url(#titleGrad)" filter="url(#glow)">DEVCONTEXT</text>
+  <text x="400" y="74" text-anchor="middle" font-family="'Courier New',monospace" font-size="11" fill="#94a3b8" letter-spacing="1">Docker for Your Engineering Brain</text>
+
+  <!-- Connection lines: left input flows -->
+  <line class="flow-in" x1="100" y1="200" x2="310" y2="200" stroke="#06b6d4" stroke-width="1.5" opacity="0.7"/>
+  <line class="flow-in" x1="120" y1="170" x2="310" y2="185" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+  <line class="flow-in" x1="120" y1="230" x2="310" y2="215" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+  <line class="flow-in" x1="140" y1="150" x2="310" y2="175" stroke="#8b5cf6" stroke-width="1" opacity="0.4"/>
+  <line class="flow-in" x1="140" y1="250" x2="310" y2="225" stroke="#8b5cf6" stroke-width="1" opacity="0.4"/>
+
+  <!-- Connection lines: right output flows -->
+  <line class="flow-out" x1="490" y1="200" x2="700" y2="200" stroke="#22c55e" stroke-width="1.5" opacity="0.7"/>
+  <line class="flow-out" x1="490" y1="185" x2="680" y2="170" stroke="#22c55e" stroke-width="1" opacity="0.5"/>
+  <line class="flow-out" x1="490" y1="215" x2="680" y2="230" stroke="#22c55e" stroke-width="1" opacity="0.5"/>
+
+  <!-- Central container icon -->
+  <g class="container-glow">
+    <rect x="320" y="155" width="160" height="90" rx="12" fill="url(#containerGrad)" stroke="#06b6d4" stroke-width="2"/>
+    <!-- Shipping marks -->
+    <line x1="345" y1="170" x2="345" y2="230" stroke="#06b6d4" stroke-width="1" opacity="0.3"/>
+    <line x1="455" y1="170" x2="455" y2="230" stroke="#06b6d4" stroke-width="1" opacity="0.3"/>
+    <line x1="335" y1="190" x2="465" y2="190" stroke="#06b6d4" stroke-width="1" opacity="0.3"/>
+    <!-- Container label -->
+    <text x="400" y="208" text-anchor="middle" font-family="'Courier New',monospace" font-size="11" font-weight="700" fill="#06b6d4">CONTEXT</text>
+    <text x="400" y="222" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#8b5cf6" opacity="0.8">portable · sealed</text>
+  </g>
+
+  <!-- Ripple effects around container -->
+  <circle class="ripple1" cx="400" cy="200" r="8" fill="none" stroke="#06b6d4" stroke-width="1"/>
+  <circle class="ripple2" cx="400" cy="200" r="8" fill="none" stroke="#8b5cf6" stroke-width="1"/>
+
+  <!-- Floating context-file nodes (left input side) -->
+  <g class="float1">
+    <circle cx="110" cy="165" r="6" fill="#0a0a1a" stroke="#06b6d4" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="110" y="155" text-anchor="middle" font-family="monospace" font-size="7" fill="#06b6d4">.env</text>
+  </g>
+  <g class="float2">
+    <circle cx="130" cy="200" r="7" fill="#0a0a1a" stroke="#8b5cf6" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="130" y="190" text-anchor="middle" font-family="monospace" font-size="7" fill="#8b5cf6">state</text>
+  </g>
+  <g class="float3">
+    <circle cx="115" cy="235" r="5" fill="#0a0a1a" stroke="#06b6d4" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="115" y="250" text-anchor="middle" font-family="monospace" font-size="7" fill="#06b6d4">git</text>
+  </g>
+  <g class="float4">
+    <circle cx="150" cy="145" r="5" fill="#0a0a1a" stroke="#22c55e" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="150" y="137" text-anchor="middle" font-family="monospace" font-size="7" fill="#22c55e">cfg</text>
+  </g>
+
+  <!-- Floating output nodes (right side) -->
+  <g class="float2">
+    <circle cx="690" cy="170" r="6" fill="#0a0a1a" stroke="#22c55e" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="690" y="160" text-anchor="middle" font-family="monospace" font-size="7" fill="#22c55e">ready</text>
+  </g>
+  <g class="float3">
+    <circle cx="700" cy="200" r="7" fill="#0a0a1a" stroke="#22c55e" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="700" y="190" text-anchor="middle" font-family="monospace" font-size="7" fill="#22c55e">live</text>
+  </g>
+  <g class="float1">
+    <circle cx="685" cy="235" r="5" fill="#0a0a1a" stroke="#06b6d4" stroke-width="1.5" filter="url(#glow)"/>
+    <text x="685" y="250" text-anchor="middle" font-family="monospace" font-size="7" fill="#06b6d4">sync</text>
+  </g>
+
+  <!-- Mini terminal panel (left) -->
+  <g class="float2">
+    <rect x="50" y="270" width="210" height="80" rx="6" fill="#0d1117" stroke="#1e293b" stroke-width="1"/>
+    <!-- Window chrome -->
+    <circle cx="63" cy="281" r="3.5" fill="#ef4444"/>
+    <circle cx="74" cy="281" r="3.5" fill="#f59e0b"/>
+    <circle cx="85" cy="281" r="3.5" fill="#22c55e"/>
+    <text x="145" y="284" text-anchor="middle" font-family="monospace" font-size="7" fill="#475569">terminal</text>
+    <line x1="50" y1="290" x2="260" y2="290" stroke="#1e293b" stroke-width="0.5"/>
+    <!-- Terminal content -->
+    <text x="60" y="305" font-family="'Courier New',monospace" font-size="9" fill="#22c55e">$</text>
+    <text x="72" y="305" font-family="'Courier New',monospace" font-size="9" fill="#94a3b8">devcontext restore</text>
+    <text x="60" y="318" font-family="'Courier New',monospace" font-size="9" fill="#06b6d4">  my-project</text>
+    <text x="60" y="331" font-family="'Courier New',monospace" font-size="8" fill="#22c55e">✓ 14 files restored</text>
+    <text x="60" y="343" font-family="'Courier New',monospace" font-size="8" fill="#22c55e">✓ context ready</text>
+    <rect class="blink-cursor" x="142" y="335" width="5" height="9" fill="#22c55e" opacity="0.8"/>
+  </g>
+
+  <!-- Mini file-tree panel (right) -->
+  <g class="float3">
+    <rect x="540" y="270" width="210" height="80" rx="6" fill="#0d1117" stroke="#1e293b" stroke-width="1"/>
+    <circle cx="553" cy="281" r="3.5" fill="#ef4444"/>
+    <circle cx="564" cy="281" r="3.5" fill="#f59e0b"/>
+    <circle cx="575" cy="281" r="3.5" fill="#22c55e"/>
+    <text x="635" y="284" text-anchor="middle" font-family="monospace" font-size="7" fill="#475569">context files</text>
+    <line x1="540" y1="290" x2="750" y2="290" stroke="#1e293b" stroke-width="0.5"/>
+    <!-- File tree -->
+    <text x="555" y="304" font-family="monospace" font-size="8" fill="#8b5cf6">📦 my-project/</text>
+    <text x="565" y="316" font-family="monospace" font-size="8" fill="#06b6d4" class="pulse1">├─ .devcontext</text>
+    <text x="565" y="328" font-family="monospace" font-size="8" fill="#06b6d4" class="pulse2">├─ brain.md</text>
+    <text x="565" y="340" font-family="monospace" font-size="8" fill="#06b6d4" class="pulse3">├─ decisions.md</text>
+    <text x="565" y="352" font-family="monospace" font-size="8" fill="#22c55e" class="pulse4">└─ state.json ✓</text>
+  </g>
+
+  <!-- Rising particles -->
+  <circle class="particle" cx="300" cy="280" r="1.5" fill="#06b6d4"/>
+  <circle class="p2" cx="400" cy="260" r="1" fill="#8b5cf6"/>
+  <circle class="p3" cx="500" cy="275" r="1.5" fill="#06b6d4"/>
+  <circle class="p4" cx="350" cy="270" r="1" fill="#22c55e"/>
+  <circle class="p5" cx="450" cy="265" r="1.2" fill="#8b5cf6"/>
+  <circle class="particle" cx="200" cy="290" r="1" fill="#06b6d4"/>
+  <circle class="p3" cx="600" cy="285" r="1.2" fill="#22c55e"/>
+
+  <!-- Directional arrows -->
+  <text x="280" y="200" text-anchor="middle" font-family="monospace" font-size="14" fill="#06b6d4" class="pulse1">→</text>
+  <text x="520" y="200" text-anchor="middle" font-family="monospace" font-size="14" fill="#22c55e" class="pulse3">→</text>
+
+  <!-- Labels -->
+  <text x="130" y="120" text-anchor="middle" font-family="monospace" font-size="9" fill="#06b6d4" opacity="0.6">INPUT</text>
+  <text x="670" y="120" text-anchor="middle" font-family="monospace" font-size="9" fill="#22c55e" opacity="0.6">RESTORE</text>
+
+  <!-- Status bar -->
+  <rect x="0" y="375" width="800" height="25" fill="#080818" opacity="0.9"/>
+  <line x1="0" y1="375" x2="800" y2="375" stroke="#1e293b" stroke-width="0.5"/>
+  <circle cx="20" cy="388" r="3" fill="#22c55e" class="pulse1"/>
+  <text x="30" y="391" font-family="'Courier New',monospace" font-size="9" fill="#64748b">portable scenarios · instant resume · any machine</text>
+  <text x="760" y="391" text-anchor="end" font-family="'Courier New',monospace" font-size="9" fill="#475569">v0.1.0</text>
+</svg>
