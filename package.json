@@ -62,6 +62,13 @@
   "bugs": {
     "url": "https://github.com/aviraldua93/devcontext/issues"
   },
+  "mcp": {
+    "server": {
+      "command": "bun",
+      "args": ["run", "src/cli/index.ts", "mcp"],
+      "transport": "stdio"
+    }
+  },
   "files": [
     "src",
     "schemas",
